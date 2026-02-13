@@ -4,7 +4,7 @@ from datetime import datetime
 from sqlalchemy import create_engine, text
 
 # ---- config ----
-DATABASE_URL = "postgresql+psycopg://rishavkaushal@localhost:5432/trading_sim"
+DATABASE_URL = "postgresql+psycopg://backtestq:backtestq@localhost:5432/trading_sim"
 TICKER = "RELIANCE"
 CSV_PATH = "data/RELIANCE.csv"
 
