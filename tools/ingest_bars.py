@@ -5,11 +5,12 @@ from sqlalchemy import create_engine, text
 
 # ---- config ----
 DATABASE_URL = "postgresql+psycopg://backtestq:backtestq@localhost:5432/trading_sim"
-TICKER = "RELIANCE"
-CSV_PATH = "data/RELIANCE.csv"
+TICKER = "BEL"
+CSV_PATH = "data/BEL.csv"
 
 # Your CSV is mm/dd/yyyy (e.g., 02/11/2026)
-DATE_FMT = "%m/%d/%Y"
+#DATE_FMT = "%m/%d/%Y"
+DATE_FMT = "%Y-%m-%d"
 # ----------------
 
 
