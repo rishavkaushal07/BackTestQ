@@ -1,0 +1,14 @@
+/Users/rishavkaushal/Desktop/python_api/engine/target/debug/deps/pyo3_build_config-6420c6cd79fc4446.d: /Users/rishavkaushal/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/pyo3-build-config-0.21.2/src/lib.rs /Users/rishavkaushal/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/pyo3-build-config-0.21.2/src/errors.rs /Users/rishavkaushal/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/pyo3-build-config-0.21.2/src/impl_.rs /Users/rishavkaushal/Desktop/python_api/engine/target/debug/build/pyo3-build-config-c1dd46dcc7930cad/out/pyo3-build-config-file.txt /Users/rishavkaushal/Desktop/python_api/engine/target/debug/build/pyo3-build-config-c1dd46dcc7930cad/out/pyo3-build-config.txt
+
+/Users/rishavkaushal/Desktop/python_api/engine/target/debug/deps/libpyo3_build_config-6420c6cd79fc4446.rlib: /Users/rishavkaushal/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/pyo3-build-config-0.21.2/src/lib.rs /Users/rishavkaushal/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/pyo3-build-config-0.21.2/src/errors.rs /Users/rishavkaushal/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/pyo3-build-config-0.21.2/src/impl_.rs /Users/rishavkaushal/Desktop/python_api/engine/target/debug/build/pyo3-build-config-c1dd46dcc7930cad/out/pyo3-build-config-file.txt /Users/rishavkaushal/Desktop/python_api/engine/target/debug/build/pyo3-build-config-c1dd46dcc7930cad/out/pyo3-build-config.txt
+
+/Users/rishavkaushal/Desktop/python_api/engine/target/debug/deps/libpyo3_build_config-6420c6cd79fc4446.rmeta: /Users/rishavkaushal/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/pyo3-build-config-0.21.2/src/lib.rs /Users/rishavkaushal/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/pyo3-build-config-0.21.2/src/errors.rs /Users/rishavkaushal/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/pyo3-build-config-0.21.2/src/impl_.rs /Users/rishavkaushal/Desktop/python_api/engine/target/debug/build/pyo3-build-config-c1dd46dcc7930cad/out/pyo3-build-config-file.txt /Users/rishavkaushal/Desktop/python_api/engine/target/debug/build/pyo3-build-config-c1dd46dcc7930cad/out/pyo3-build-config.txt
+
+/Users/rishavkaushal/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/pyo3-build-config-0.21.2/src/lib.rs:
+/Users/rishavkaushal/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/pyo3-build-config-0.21.2/src/errors.rs:
+/Users/rishavkaushal/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/pyo3-build-config-0.21.2/src/impl_.rs:
+/Users/rishavkaushal/Desktop/python_api/engine/target/debug/build/pyo3-build-config-c1dd46dcc7930cad/out/pyo3-build-config-file.txt:
+/Users/rishavkaushal/Desktop/python_api/engine/target/debug/build/pyo3-build-config-c1dd46dcc7930cad/out/pyo3-build-config.txt:
+
+# env-dep:CARGO_PKG_VERSION=0.21.2
+# env-dep:OUT_DIR=/Users/rishavkaushal/Desktop/python_api/engine/target/debug/build/pyo3-build-config-c1dd46dcc7930cad/out
