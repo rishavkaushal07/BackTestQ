@@ -249,29 +249,35 @@ impl Engine {
         let mut annual_return_pct: f64 = 0.0;
         let mut volatility_pct: f64 = 0.0;
         if self.equity_curve.len() >= 2 {
-            let mut rets: Vec<f64> = Vec::new();
-            for i in 1..self.equity_curve.len() {
-                let prev = self.equity_curve[i - 1].1 as f64;
-                let cur = self.equity_curve[i].1 as f64;
-                if prev == 0.0 { continue; }
-                rets.push((cur / prev) - 1.0);
+        let mut rets: Vec<f64> = Vec::new();
+        for i in 1..self.equity_curve.len() {
+            let prev = self.equity_curve[i - 1].1 as f64;
+            let cur = self.equity_curve[i].1 as f64;
+            if prev == 0.0 { continue; }
+            // log return
+            rets.push((cur / prev).ln());
+        }
+        if !rets.is_empty() {
+            let n = rets.len() as f64;
+            let mean = rets.iter().sum::<f64>() / n;
+            let sd = if rets.len() > 1 {
+                let var = rets.iter().map(|r| (r - mean) * (r - mean)).sum::<f64>() / (n - 1.0);
+                var.sqrt()
+            } else {
+                0.0
+            };
+            // risk-free annual rate (default 0.0). Change here if you want a different Rf.
+            let rf_annual = 0.0_f64;
+            let rf_daily = rf_annual / 252.0;
+            if sd != 0.0 {
+                let mean_excess = mean - rf_daily;
+                sharpe_val = (mean_excess / sd) * (252f64).sqrt();
             }
-            if !rets.is_empty() {
-                let n = rets.len() as f64;
-                let mean = rets.iter().sum::<f64>() / n;
-                let sd = if rets.len() > 1 {
-                    let var = rets.iter().map(|r| (r - mean) * (r - mean)).sum::<f64>() / (n - 1.0);
-                    var.sqrt()
-                } else {
-                    0.0
-                };
-                if sd != 0.0 {
-                    sharpe_val = (mean / sd) * (252f64).sqrt();
-                }
-                // annualized return (arithmetic) and volatility (std dev annualized) in percent
-                annual_return_pct = mean * 252.0 * 100.0;
-                volatility_pct = sd * (252f64).sqrt() * 100.0;
-            }
+            // annualized return from log-returns, convert to percent
+            annual_return_pct = (mean * 252.0).exp() - 1.0;
+            annual_return_pct = annual_return_pct * 100.0;
+            volatility_pct = sd * (252f64).sqrt() * 100.0;
+        }
         }
 
         // Compute drawdown percent relative to peak equity
