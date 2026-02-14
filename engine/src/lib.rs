@@ -39,7 +39,13 @@ struct Metrics {
     #[pyo3(get)]
     max_drawdown_paise: Money,
     #[pyo3(get)]
+    max_drawdown_pct: f64,
+    #[pyo3(get)]
     sharpe: f64,
+    #[pyo3(get)]
+    annual_return_pct: f64,
+    #[pyo3(get)]
+    volatility: f64,
 }
 
 #[pyclass]
@@ -238,15 +244,53 @@ impl Engine {
             (self.wins as f64) / (self.trades_closed as f64)
         } else { 0.0 };
 
-        // Sharpe placeholder for now; we’ll compute properly once returns exist (next iteration).
-        // For now 0.0 so pipeline is correct.
+        // Compute daily arithmetic returns, sharpe, annual return and annual volatility.
+        let mut sharpe_val: f64 = 0.0;
+        let mut annual_return_pct: f64 = 0.0;
+        let mut volatility_pct: f64 = 0.0;
+        if self.equity_curve.len() >= 2 {
+            let mut rets: Vec<f64> = Vec::new();
+            for i in 1..self.equity_curve.len() {
+                let prev = self.equity_curve[i - 1].1 as f64;
+                let cur = self.equity_curve[i].1 as f64;
+                if prev == 0.0 { continue; }
+                rets.push((cur / prev) - 1.0);
+            }
+            if !rets.is_empty() {
+                let n = rets.len() as f64;
+                let mean = rets.iter().sum::<f64>() / n;
+                let sd = if rets.len() > 1 {
+                    let var = rets.iter().map(|r| (r - mean) * (r - mean)).sum::<f64>() / (n - 1.0);
+                    var.sqrt()
+                } else {
+                    0.0
+                };
+                if sd != 0.0 {
+                    sharpe_val = (mean / sd) * (252f64).sqrt();
+                }
+                // annualized return (arithmetic) and volatility (std dev annualized) in percent
+                annual_return_pct = mean * 252.0 * 100.0;
+                volatility_pct = sd * (252f64).sqrt() * 100.0;
+            }
+        }
+
+        // Compute drawdown percent relative to peak equity
+        let dd_pct = if self.peak_equity > 0 {
+            (self.max_dd as f64 / self.peak_equity as f64) * 100.0
+        } else {
+            0.0
+        };
+
         Metrics {
             realized_pnl_paise: self.realized_pnl,
             fees_paise: self.fees_paid,
             trades_closed: self.trades_closed,
             win_rate,
             max_drawdown_paise: self.max_dd,
-            sharpe: 0.0,
+            max_drawdown_pct: dd_pct,
+            sharpe: sharpe_val,
+            annual_return_pct,
+            volatility: volatility_pct,
         }
     }
 }

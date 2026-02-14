@@ -32,3 +32,22 @@ class RunMetricsOut(BaseModel):
     realized_pnl_inr: float
     fees_paise: int
     fees_inr: float
+    annual_return_pct: float = 0.0
+    volatility: float = 0.0
+    max_drawdown_pct: float = 0.0
+
+
+class SymbolMetricsOut(BaseModel):
+    ticker: str
+    realized_pnl_paise: int
+    realized_pnl_inr: float
+    trades_closed: int
+    wins: int
+    win_rate: float
+    trade_count: int
+
+
+class BatchRunOutput(BaseModel):
+    run_id: UUID
+    metrics: RunMetricsOut | None
+    equity: list[RunEquityPoint]

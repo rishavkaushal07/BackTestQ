@@ -37,3 +37,12 @@ class RunOut(BaseModel):
     started_at: Optional[datetime]
     finished_at: Optional[datetime]
     error: Optional[str]
+    class Config:
+        from_attributes = True
+
+
+class RunsListOut(BaseModel):
+    items: list[RunOut]
+    total: int
+    page: int
+    page_size: int

@@ -29,6 +29,7 @@ IMPORTANT:
 """
 
 import time
+import math
 from dataclasses import dataclass
 from datetime import date, timedelta
 from typing import Any, Dict, List, Tuple, Optional
@@ -431,21 +432,87 @@ def write_results(
         )
 
     # Metrics (Sharpe may be 0.0 for now; we’ll compute properly next)
+    # Compute sharpe from equity curve as a fallback if engine didn't provide one.
+    def compute_sharpe_from_equity(e_curve: List[Tuple[str, int]]) -> float:
+        # Convert equity paise values to floats and compute simple daily returns.
+        if not e_curve or len(e_curve) < 2:
+            return 0.0
+        vals = [float(v) for (_d, v) in e_curve]
+        rets: List[float] = []
+        for i in range(1, len(vals)):
+            prev = vals[i - 1]
+            if prev == 0:
+                continue
+            rets.append((vals[i] / prev) - 1.0)
+        if not rets:
+            return 0.0
+        mean = sum(rets) / len(rets)
+        # sample standard deviation
+        if len(rets) > 1:
+            variance = sum((r - mean) ** 2 for r in rets) / (len(rets) - 1)
+            sd = math.sqrt(variance)
+        else:
+            sd = 0.0
+        if sd == 0.0:
+            return 0.0
+        # annualize assuming ~252 trading days
+        sharpe = (mean / sd) * (252 ** 0.5)
+        return float(sharpe)
+
+    computed_sharpe = compute_sharpe_from_equity(equity_curve)
+    engine_sharpe = None
+    try:
+        engine_sharpe = getattr(metrics, "sharpe", None)
+        if engine_sharpe is not None:
+            engine_sharpe = float(engine_sharpe)
+    except Exception:
+        engine_sharpe = None
+
+    sharpe_to_store = engine_sharpe if (engine_sharpe is not None and engine_sharpe != 0.0) else computed_sharpe
+    # Compute max drawdown pct fallback from equity curve if engine didn't provide it.
+    def compute_max_drawdown_pct(e_curve: List[Tuple[str, int]]) -> float:
+        if not e_curve:
+            return 0.0
+        vals = [float(v) for (_d, v) in e_curve]
+        peak = vals[0]
+        max_dd_pct = 0.0
+        for v in vals:
+            if v > peak:
+                peak = v
+            dd = (peak - v) / peak if peak > 0 else 0.0
+            if dd > max_dd_pct:
+                max_dd_pct = dd
+        return max_dd_pct * 100.0
+
+    computed_max_dd_pct = compute_max_drawdown_pct(equity_curve)
+    engine_max_dd_pct = None
+    try:
+        engine_max_dd_pct = getattr(metrics, "max_drawdown_pct", None)
+        if engine_max_dd_pct is not None:
+            engine_max_dd_pct = float(engine_max_dd_pct)
+    except Exception:
+        engine_max_dd_pct = None
+
+    max_drawdown_pct_to_store = engine_max_dd_pct if (engine_max_dd_pct is not None and engine_max_dd_pct != 0.0) else computed_max_dd_pct
+
     db.execute(
         text(
             """
-            INSERT INTO run_metrics (run_id, sharpe, max_drawdown_paise, win_rate, trades_closed, realized_pnl_paise, fees_paise)
-            VALUES (:run_id, :sharpe, :mdd, :wr, :tc, :rp, :fees)
+            INSERT INTO run_metrics (run_id, sharpe, max_drawdown_paise, max_drawdown_pct, win_rate, trades_closed, realized_pnl_paise, fees_paise, annual_return_pct, volatility)
+            VALUES (:run_id, :sharpe, :mdd, :mdd_pct, :wr, :tc, :rp, :fees, :annual_return_pct, :volatility)
             """
         ),
         {
             "run_id": run_id,
-            "sharpe": float(getattr(metrics, "sharpe", 0.0)),
+            "sharpe": float(sharpe_to_store),
             "mdd": int(getattr(metrics, "max_drawdown_paise", 0)),
+            "mdd_pct": float(max_drawdown_pct_to_store),
             "wr": float(getattr(metrics, "win_rate", 0.0)),
             "tc": int(getattr(metrics, "trades_closed", 0)),
             "rp": int(getattr(metrics, "realized_pnl_paise", 0)),
             "fees": int(getattr(metrics, "fees_paise", 0)),
+            "annual_return_pct": float(getattr(metrics, "annual_return_pct", 0.0)),
+            "volatility": float(getattr(metrics, "volatility", 0.0)),
         },
     )
 
