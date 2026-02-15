@@ -5,7 +5,9 @@ from uuid import UUID
 
 # ---- Runs ----
 class RunCreate(BaseModel):
-    strategy_id: UUID
+    # Either reference an existing strategy by id OR provide inline strategy code.
+    strategy_id: UUID | None = None
+    strategy_code: str | None = None
 
     # old way
     symbols: Optional[list[str]] = None
@@ -21,11 +23,13 @@ class RunCreate(BaseModel):
     slippage_bps: Optional[int] = None
 
     @model_validator(mode="after")
-    def validate_symbols_or_portfolio(self):
+    def validate_inputs(self):
         if not self.symbols and not self.portfolio_id:
             raise ValueError("Provide either symbols or portfolio_id")
         if self.symbols and self.portfolio_id:
             raise ValueError("Provide only one of symbols or portfolio_id")
+        if not self.strategy_id and not self.strategy_code:
+            raise ValueError("Provide either strategy_id or inline strategy_code")
         return self
 
 class RunOut(BaseModel):

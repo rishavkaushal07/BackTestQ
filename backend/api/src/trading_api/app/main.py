@@ -67,12 +67,80 @@ def update_strategy(strategy_id: UUID, payload: schemas.StrategyUpdate, db: Sess
     db.refresh(s)
     return s
 
+
+@app.delete("/strategies/{strategy_id}")
+def delete_strategy(strategy_id: UUID, db: Session = Depends(get_db)):
+    # Delete runs and associated data for this strategy, then delete the strategy
+    # Get run ids for strategy
+    rows = db.execute(
+        text("SELECT id FROM runs WHERE strategy_id = :sid"),
+        {"sid": str(strategy_id)},
+    ).fetchall()
+    run_ids = [str(r[0]) for r in rows]
+
+    if run_ids:
+        # delete dependent run data
+        db.execute(text("DELETE FROM run_fills WHERE run_id = ANY(:ids)"), {"ids": run_ids})
+        db.execute(text("DELETE FROM run_equity WHERE run_id = ANY(:ids)"), {"ids": run_ids})
+        db.execute(text("DELETE FROM run_metrics WHERE run_id = ANY(:ids)"), {"ids": run_ids})
+        db.execute(text("DELETE FROM run_logs WHERE run_id = ANY(:ids)"), {"ids": run_ids})
+        db.execute(text("DELETE FROM runs WHERE id = ANY(:ids)"), {"ids": run_ids})
+
+    # delete strategy
+    s = db.get(models.Strategy, strategy_id)
+    if not s:
+        raise HTTPException(status_code=404, detail="Strategy not found")
+    db.delete(s)
+    db.commit()
+    return {"ok": True}
+
+
+class BulkDeleteStrategiesRequest(BaseModel):
+    strategy_ids: list[UUID]
+
+
+@app.post("/strategies/bulk-delete")
+def bulk_delete_strategies(payload: BulkDeleteStrategiesRequest, db: Session = Depends(get_db)):
+    ids = [str(s) for s in payload.strategy_ids]
+    if not ids:
+        return {"deleted": 0}
+
+    # Find runs for these strategies
+    rows = db.execute(text("SELECT id FROM runs WHERE strategy_id = ANY(:ids)"), {"ids": ids}).fetchall()
+    run_ids = [str(r[0]) for r in rows]
+
+    if run_ids:
+        db.execute(text("DELETE FROM run_fills WHERE run_id = ANY(:rids)"), {"rids": run_ids})
+        db.execute(text("DELETE FROM run_equity WHERE run_id = ANY(:rids)"), {"rids": run_ids})
+        db.execute(text("DELETE FROM run_metrics WHERE run_id = ANY(:rids)"), {"rids": run_ids})
+        db.execute(text("DELETE FROM run_logs WHERE run_id = ANY(:rids)"), {"rids": run_ids})
+        db.execute(text("DELETE FROM runs WHERE id = ANY(:rids)"), {"rids": run_ids})
+
+    # Delete strategies
+    db.execute(text("DELETE FROM strategies WHERE id = ANY(:ids)"), {"ids": ids})
+    db.commit()
+    return {"deleted": len(ids)}
+
 # ---- Runs ----
 @app.post("/runs", response_model=schemas.RunOut)
 def create_run(payload: schemas.RunCreate, db: Session = Depends(get_db)):
-    strat = db.get(models.Strategy, payload.strategy_id)
-    if not strat:
-        raise HTTPException(status_code=404, detail="Strategy not found")
+    # If strategy_id provided, validate it exists.
+    strategy_ref_id = None
+    if payload.strategy_id:
+        strat = db.get(models.Strategy, payload.strategy_id)
+        if not strat:
+            raise HTTPException(status_code=404, detail="Strategy not found")
+        strategy_ref_id = payload.strategy_id
+    # If inline strategy_code provided without a strategy_id, create a lightweight temporary strategy
+    # so we can satisfy the DB NOT NULL constraint on runs.strategy_id. Temporary strategies are
+    # prefixed with "sweep_tmp_" so they can be cleaned up later.
+    if not strategy_ref_id and getattr(payload, "strategy_code", None):
+        tmp_name = f"sweep_tmp_{int(datetime.utcnow().timestamp())}"
+        s = models.Strategy(name=tmp_name, code=payload.strategy_code)
+        db.add(s)
+        db.commit()
+        db.refresh(s)
+        strategy_ref_id = s.id
 
     # Build run config. Ensure any UUIDs are converted to strings so JSON serialization succeeds.
     config = {
@@ -92,8 +160,10 @@ def create_run(payload: schemas.RunCreate, db: Session = Depends(get_db)):
         "asset_class": "EQUITY",
         "currency": "INR",
     }
-
-    r = models.Run(strategy_id=payload.strategy_id, status="QUEUED", config_json=config)
+    # If inline strategy code provided, store it in config so the worker can pick it up without requiring a persisted strategy.
+    if payload.strategy_code:
+        config["strategy_code"] = payload.strategy_code
+    r = models.Run(strategy_id=strategy_ref_id, status="QUEUED", config_json=config)
     db.add(r)
     db.commit()
     db.refresh(r)
@@ -422,8 +492,24 @@ def get_runs_batch_outputs(payload: RunsBatchRequest, db: Session = Depends(get_
 @app.post("/runs/bulk-delete")
 def bulk_delete_runs(payload: RunsBatchRequest, db: Session = Depends(get_db)):
     ids = [str(x) for x in payload.run_ids]
+    if not ids:
+        return {"deleted": 0}
+
+    # capture strategy_ids referenced by these runs (so we can optionally delete temporary strategies)
+    rows = db.execute(text("SELECT DISTINCT strategy_id FROM runs WHERE id = ANY(:ids) AND strategy_id IS NOT NULL"), {"ids": ids}).fetchall()
+    strategy_ids = [str(r[0]) for r in rows if r[0] is not None]
+
     # delete runs (cascade will remove related rows)
     deleted = db.execute(text("DELETE FROM runs WHERE id = ANY(:ids)"), {"ids": ids})
+
+    # delete temporary strategies created for sweeps (name prefixed with sweep_tmp_)
+    if strategy_ids:
+        try:
+            db.execute(text("DELETE FROM strategies WHERE id = ANY(:sids) AND name LIKE :prefix"), {"sids": strategy_ids, "prefix": "sweep_tmp_%"})
+        except Exception:
+            # best-effort, ignore failures
+            pass
+
     db.commit()
     return {"deleted": deleted.rowcount if hasattr(deleted, "rowcount") else len(ids)}
 

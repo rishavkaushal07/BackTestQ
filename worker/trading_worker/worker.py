@@ -132,16 +132,21 @@ def get_run_config_and_strategy(db: Session, run_id: str) -> Tuple[dict, str, st
             """
             SELECT r.config_json, s.code, r.strategy_id
             FROM runs r
-            JOIN strategies s ON s.id = r.strategy_id
+            LEFT JOIN strategies s ON s.id = r.strategy_id
             WHERE r.id = :id
             """
         ),
         {"id": run_id},
     ).fetchone()
     if not row:
-        raise RuntimeError(f"run not found or strategy missing: {run_id}")
+        raise RuntimeError(f"run not found: {run_id}")
     cfg, code, sid = row
-    return cfg, code, str(sid)
+    # If the strategy is not persisted (no join result), allow inline code stored in run config under "strategy_code"
+    if code is None:
+        code = cfg.get("strategy_code")
+    if not code:
+        raise RuntimeError(f"strategy code not found for run: {run_id}")
+    return cfg, code, str(sid) if sid is not None else ""
 
 
 # ------------------------
